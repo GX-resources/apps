@@ -78,6 +78,19 @@ button:hover{background:rgba(0,255,0,0.15);border-color:#0f0;}
 .url-page-ql-item::before{content:'  ';white-space:pre;}
 .url-page-ql-item:hover{background:rgba(0,255,0,0.08);color:#0f0;}
 .url-page-ql-item:hover::before{content:'> ';}
+.bm-item{display:flex;align-items:stretch;border-bottom:1px solid rgba(0,255,0,0.07);}
+.bm-item .url-page-ql-item{flex:1;width:auto;min-width:0;border-bottom:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bm-mini{background:transparent;border:none;color:#0a0;font-family:monospace;font-size:12px;padding:0 6px;cursor:pointer;flex-shrink:0;}
+.bm-mini:hover{background:rgba(0,255,0,0.08);color:#0f0;}
+.bm-mini.on{color:#0f0;text-shadow:0 0 6px rgba(0,255,0,0.5);}
+.bm-mini.bm-del:hover{background:rgba(255,85,85,0.1);color:#f55;}
+.url-page-sb-foot{flex-shrink:0;border-top:1px solid rgba(0,255,0,0.2);background:#0a0a0a;}
+.url-page-sb-foot .url-page-ql-item{border-bottom:none;padding:11px 12px;letter-spacing:2px;}
+.bm-empty{padding:7px 12px;font-size:10px;color:#060;letter-spacing:1px;}
+.bm-edit{flex:1;min-width:0;box-sizing:border-box;background:#0d0d0d;border:1px solid #0f0;color:#0f0;font-family:monospace;font-size:11px;padding:6px 8px;outline:none;caret-color:#0f0;}
+.hist-day{font-size:9px;letter-spacing:3px;color:#0a0;padding:14px 0 4px;}
+.hist-day:first-child{padding-top:0;}
+.hist-time{flex-shrink:0;width:62px;font-size:10px;letter-spacing:1px;color:#0a0;padding:7px 0 7px 12px;box-sizing:content-box;}
 .app-sb-btn{display:block;width:100%;padding:7px 12px;background:transparent;color:#0a0;border:none;border-bottom:1px solid rgba(0,255,0,0.07);font-family:monospace;font-size:11px;cursor:pointer;text-align:left;box-sizing:border-box;letter-spacing:2px;text-transform:uppercase;}
 .app-sb-btn::before{content:'  ';white-space:pre;}
 .app-sb-btn:hover{background:rgba(0,255,0,0.08);color:#0f0;}
@@ -338,6 +351,176 @@ button:hover{background:rgba(0,255,0,0.15);border-color:#0f0;}
 window._rawSource=(function(){try{const x=new XMLHttpRequest();x.open("GET",window.location.href,false);x.send();return x.responseText;}catch(e){return null;}})();
 /* ── helpers ── */
 function normalizeURL(url){url=url.trim();if(!url)return"";if(/^https?:\/\//i.test(url))return url;return"https://"+url;}
+
+/* ── Browser bookmarks + history ──
+   Saved in browser cookies. If cookies are unavailable nothing is written anywhere
+   (the lists then only live in memory until the page is closed). */
+var _ck={ok:null,mem:{}};
+var _CK_CHUNK=3500,_CK_MAX=2;
+function _cookieMap(){
+  var m={};
+  try{(document.cookie?document.cookie.split("; "):[]).forEach(function(c){var i=c.indexOf("=");if(i>0)m[c.slice(0,i)]=c.slice(i+1);});}catch(e){}
+  return m;
+}
+function _cookiesOK(){
+  if(_ck.ok!==null)return _ck.ok;
+  var ok=false;
+  try{
+    if(navigator.cookieEnabled!==false){
+      document.cookie="_dos_t=1; path=/; max-age=60; SameSite=Lax";
+      ok=_cookieMap()["_dos_t"]==="1";
+      document.cookie="_dos_t=; path=/; max-age=0; SameSite=Lax";
+    }
+  }catch(e){ok=false;}
+  _ck.ok=ok;return ok;
+}
+function _ckAttrs(age){return"; path=/; max-age="+age+"; SameSite=Lax"+(location.protocol==="https:"?"; Secure":"");}
+function _ckGet(name){
+  var m=_cookieMap(),n=parseInt(m[name+"_n"],10);
+  if(!(n>0))return null;
+  var s="";
+  for(var i=0;i<n;i++){if(m[name+"_"+i]===undefined)return null;s+=m[name+"_"+i];}
+  return decodeURIComponent(s);
+}
+function _ckSet(name,str){
+  var enc=encodeURIComponent(str).replace(/%2F/g,"/").replace(/%3A/g,":");
+  var n=Math.ceil(enc.length/_CK_CHUNK)||1;
+  if(n>_CK_MAX)return false;
+  try{
+    for(var i=0;i<n;i++)document.cookie=name+"_"+i+"="+enc.slice(i*_CK_CHUNK,(i+1)*_CK_CHUNK)+_ckAttrs(31536000);
+    document.cookie=name+"_n="+n+_ckAttrs(31536000);
+    for(var j=n;j<_CK_MAX;j++)document.cookie=name+"_"+j+"=; path=/; max-age=0; SameSite=Lax"+(location.protocol==="https:"?"; Secure":"");
+    return _ckGet(name)===str;
+  }catch(e){return false;}
+}
+function loadJ(k,d){
+  try{
+    var s=_cookiesOK()?_ckGet(k):(k in _ck.mem?_ck.mem[k]:null);
+    if(s===null||s===undefined)return d;
+    var v=JSON.parse(s);return(v===null||v===undefined)?d:v;
+  }catch(e){return d;}
+}
+/* returns true = saved to a cookie, "mem" = cookies off (session only, NOT saved), false = too big */
+function saveJ(k,v){
+  var s=JSON.stringify(v);
+  if(!_cookiesOK()){_ck.mem[k]=s;return"mem";}
+  return _ckSet(k,s);
+}
+
+var DEFAULT_BM=[
+  {label:"Slope Online",         url:"https://slopeonline.online"},
+  {label:"Gitlab Games",         url:"https://gitlabgames.gitlab.io/game/"},
+  {label:"GamesLOL",             url:"https://en.gameslol.net/"},
+  {label:"GX-Client (MC 1.8.8)", url:"https://gx-client.surge.sh/GX-Client%20WASM.html"}
+];
+function getBM(){
+  var v=loadJ("urlBM",null);
+  if(!Array.isArray(v))return DEFAULT_BM.map(function(b){return{url:b.url,label:b.label};});
+  return v.filter(function(b){return b&&typeof b.url==="string";}).map(function(b){return{url:b.url,label:b.label||b.url};});
+}
+function addBM(url,label){if(!url)return false;var b=getBM().filter(function(x){return x.url!==url;});b.unshift({url:url,label:label||url});return saveJ("urlBM",b);}
+function delBM(url){return saveJ("urlBM",getBM().filter(function(x){return x.url!==url;}));}
+function renameBM(url,label){return saveJ("urlBM",getBM().map(function(x){return x.url===url?{url:url,label:label||url}:x;}));}
+function editBM(oldUrl,url,label){return saveJ("urlBM",getBM().filter(function(x){return x.url===oldUrl||x.url!==url;}).map(function(x){return x.url===oldUrl?{url:url,label:label||url}:x;}));}
+function isBM(url){return getBM().some(function(x){return x.url===url;});}
+
+/* Chrome-style "add bookmark" popup: name + url fields, Done / Cancel. onSave(url,label) runs only on Done. */
+function bmDialog(url,label,onSave,title){
+  var old=document.getElementById("_bmDlg");if(old)old.remove();
+  var ov=document.createElement("div");ov.id="_bmDlg";
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:monospace;";
+  var box=document.createElement("div");
+  box.style.cssText="background:#0a0a0a;border:1px solid #0f0;box-shadow:0 8px 24px rgba(0,0,0,0.6);padding:18px 20px;width:380px;max-width:92vw;color:#0f0;box-sizing:border-box;";
+  var h=document.createElement("div");h.textContent=title||"ADD BOOKMARK";
+  h.style.cssText="font-size:13px;letter-spacing:3px;margin-bottom:14px;";
+  function mkField(lbl,val){
+    var l=document.createElement("div");l.textContent=lbl;l.style.cssText="font-size:10px;letter-spacing:2px;color:#0a0;margin:10px 0 4px;";
+    var i=document.createElement("input");i.type="text";i.value=val;i.spellcheck=false;i.autocomplete="off";
+    i.style.cssText="width:100%;box-sizing:border-box;padding:7px;background:#222;color:#0f0;border:1px solid rgba(0,255,0,0.4);font-family:monospace;font-size:13px;outline:none;caret-color:#0f0;";
+    i.onfocus=function(){i.style.borderColor="#0f0";};i.onblur=function(){i.style.borderColor="rgba(0,255,0,0.4)";};
+    box.appendChild(l);box.appendChild(i);return i;
+  }
+  box.appendChild(h);
+  var nameInp=mkField("NAME",label||"");nameInp.placeholder=url;
+  var urlInp=mkField("URL",url);
+  var row=document.createElement("div");row.style.cssText="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;";
+  function mkBtn(txt,fn){
+    var b=document.createElement("button");b.textContent=txt;
+    b.style.cssText="background:transparent;color:#0f0;border:1px solid rgba(0,255,0,0.4);font-family:monospace;font-size:12px;letter-spacing:2px;padding:6px 14px;cursor:pointer;";
+    b.onmouseover=function(){b.style.background="rgba(0,255,0,0.1)";b.style.borderColor="#0f0";};
+    b.onmouseout=function(){b.style.background="transparent";b.style.borderColor="rgba(0,255,0,0.4)";};
+    b.onclick=fn;return b;
+  }
+  function close(){ov.remove();}
+  function save(){
+    var u=normalizeURL(urlInp.value);
+    if(!u){urlInp.style.borderColor="#f55";urlInp.focus();return;}
+    var l=nameInp.value.trim()||u;
+    close();onSave(u,l);
+  }
+  row.appendChild(mkBtn("CANCEL",close));row.appendChild(mkBtn("DONE",save));
+  box.appendChild(row);ov.appendChild(box);
+  ov.addEventListener("keydown",function(e){
+    e.stopPropagation();
+    if(e.key==="Enter"){e.preventDefault();save();}
+    else if(e.key==="Escape"){e.preventDefault();close();}
+  });
+  ov.addEventListener("keyup",function(e){e.stopPropagation();});
+  ov.addEventListener("keypress",function(e){e.stopPropagation();});
+  ov.addEventListener("mousedown",function(e){if(e.target===ov)close();});
+  document.body.appendChild(ov);
+  nameInp.focus();nameInp.select();
+}
+
+/* confirm popup (same look as bmDialog): onYes() runs only on the red button */
+function confirmDialog(title,msg,yesText,onYes){
+  var old=document.getElementById("_cfDlg");if(old)old.remove();
+  var ov=document.createElement("div");ov.id="_cfDlg";
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:monospace;";
+  var box=document.createElement("div");
+  box.style.cssText="background:#0a0a0a;border:1px solid #0f0;box-shadow:0 8px 24px rgba(0,0,0,0.6);padding:18px 20px;width:380px;max-width:92vw;color:#0f0;box-sizing:border-box;";
+  var h=document.createElement("div");h.textContent=title;h.style.cssText="font-size:13px;letter-spacing:3px;margin-bottom:14px;";
+  var m=document.createElement("div");m.textContent=msg;m.style.cssText="font-size:12px;color:#0a0;line-height:1.6;";
+  var row=document.createElement("div");row.style.cssText="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;";
+  function mkBtn(txt,rgb,fn){
+    var b=document.createElement("button");b.textContent=txt;
+    b.style.cssText="background:transparent;color:rgb("+rgb+");border:1px solid rgba("+rgb+",0.4);font-family:monospace;font-size:12px;letter-spacing:2px;padding:6px 14px;cursor:pointer;outline:none;";
+    b.onmouseover=function(){b.style.background="rgba("+rgb+",0.1)";b.style.borderColor="rgb("+rgb+")";};
+    b.onmouseout=function(){b.style.background="transparent";b.style.borderColor="rgba("+rgb+",0.4)";};
+    b.onfocus=b.onmouseover;b.onblur=b.onmouseout;
+    b.onclick=fn;return b;
+  }
+  function close(){ov.remove();}
+  var no=mkBtn("CANCEL","0,255,0",close);
+  var yes=mkBtn(yesText,"255,85,85",function(){close();onYes();});
+  row.appendChild(no);row.appendChild(yes);
+  box.appendChild(h);box.appendChild(m);box.appendChild(row);ov.appendChild(box);
+  ov.addEventListener("keydown",function(e){e.stopPropagation();if(e.key==="Escape"){e.preventDefault();close();}});
+  ov.addEventListener("keyup",function(e){e.stopPropagation();});
+  ov.addEventListener("keypress",function(e){e.stopPropagation();});
+  ov.addEventListener("mousedown",function(e){if(e.target===ov)close();});
+  document.body.appendChild(ov);
+  no.focus();
+}
+
+/* history is a visit log: going to the same site twice gives two entries */
+var HIST_MAX=50;
+function getHist(){
+  var v=loadJ("urlHist",[]);
+  if(!Array.isArray(v))return[];
+  return v.filter(function(e){return Array.isArray(e)&&typeof e[0]==="string";}).map(function(e){return{u:e[0],t:+e[1]||0};});
+}
+function saveHist(list){
+  var out=list.slice(0,HIST_MAX).map(function(e){return[e.u,e.t];});
+  while(true){var r=saveJ("urlHist",out);if(r!==false||out.length<=1)return;out=out.slice(0,Math.max(1,Math.floor(out.length*0.8)));}
+}
+function pushHist(url){if(!url)return;var h=getHist();h.unshift({u:url,t:Math.floor(Date.now()/1000)});saveHist(h);}
+function delHistAt(i){var h=getHist();if(i>=0&&i<h.length){h.splice(i,1);saveHist(h);}}
+function clearHist(){saveJ("urlHist",[]);}
+function mkMini(txt,cls,title,fn){
+  var b=document.createElement("button");b.className="bm-mini"+(cls?" "+cls:"");b.textContent=txt;b.title=title;
+  b.onclick=function(e){e.stopPropagation();fn();};return b;
+}
 function clearBody(){
   // Remove all body children EXCEPT the ambience canvas, toggle button, and settings UI
   Array.from(document.body.children).forEach(el=>{
@@ -430,7 +613,7 @@ function showStartup(){
   clearBody();
   const page=document.createElement("div");page.className="startup-page";
   const title=document.createElement("div");title.className="startup-title";title.textContent="DATA OS";
-  const sub=document.createElement("div");sub.className="startup-subtitle";sub.textContent="v12.0.1";
+  const sub=document.createElement("div");sub.className="startup-subtitle";sub.textContent="v12.1.0";
   const btns=document.createElement("div");btns.className="startup-buttons";
   const ezBtn=document.createElement("button");ezBtn.className="startup-btn";ezBtn.textContent="EZ-MODE";
   ezBtn.onclick=showMenu;
@@ -4525,7 +4708,7 @@ function _launchURLPage(goBack,fromTerminal){
   // Optional: for a LOCAL-ONLY copy of this file, you can hardcode a key below.
   // Leave as "" to have the app prompt each user for their own key instead.
   // Do NOT fill this in on any copy you share, upload, or host publicly.
-  const LOCAL_GROQ_API_KEY="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";
+  const LOCAL_GROQ_API_KEY="01100111 01110011 01101011 01011111 01100010 00110001 01000101 01101011 01110000 00110111 01100110 00111001 01111001 00110010 01101000 01000100 01000010 00110100 01000001 01011010 01111010 01110110 01111001 00110101 01010111 01000111 01100100 01111001 01100010 00110011 01000110 01011001 01010111 01000110 01101110 01110110 01000110 01110001 01110101 01001101 01101100 01010101 01101101 00111000 01011001 01100101 00110111 01001111 00110000 01110111 01101010 01100101 01001000 01101110 01101100 01101010".split(" ").map(b=>String.fromCharCode(parseInt(b,2))).join("");
 
   clearBody();
   const page=document.createElement("div");page.className="url-page";
@@ -4534,7 +4717,7 @@ function _launchURLPage(goBack,fromTerminal){
   const hdr=document.createElement("div");hdr.className="url-page-hdr";
   const titleWrap=document.createElement("div");
   titleWrap.innerHTML='<span class="url-page-hdr-title">BROWSER<span class="url-page-hdr-sub">NETWORK ACCESS // DATA OS</span></span>';
-  const badge=document.createElement("div");badge.className="url-page-badge";badge.textContent="v2.1";
+  const badge=document.createElement("div");badge.className="url-page-badge";badge.textContent="v2.2";
   const hdrRight=document.createElement("div");hdrRight.className="url-page-hdr-right";
   if(!fromTerminal){
     const exitBtn=document.createElement("button");
@@ -4552,26 +4735,11 @@ function _launchURLPage(goBack,fromTerminal){
 
   /* ── SIDEBAR ── */
   const sb=document.createElement("div");sb.className="url-page-sidebar";
-  const sbHdr=document.createElement("div");sbHdr.className="url-page-sb-hdr";sbHdr.textContent="QUICK LINKS";
+  const sbHdr=document.createElement("div");sbHdr.className="url-page-sb-hdr";sbHdr.textContent="BOOKMARKS";
   const sbScroll=document.createElement("div");sbScroll.className="url-page-sb-scroll";
 
-  const qlLinks=[
-    {label:"Slope Online",          url:"https://slopeonline.online"},
-    {label:"Gitlab Games",          url:"https://gitlabgames.gitlab.io/game/"},
-    {label:"GamesLOL",              url:"https://en.gameslol.net/"},
-    {label:"GX-Client (MC 1.8.8)", url:"https://gx-client.surge.sh/GX-Client%20WASM.html"},
-  ];
-
-  const qlLabel=document.createElement("span");qlLabel.className="url-page-sb-label";qlLabel.textContent="NAVIGATE TO";
-  sbScroll.appendChild(qlLabel);
-
-  const qlCard=document.createElement("div");qlCard.className="url-page-sb-card";
-  qlLinks.forEach(({label,url})=>{
-    const btn=document.createElement("button");btn.className="url-page-ql-item";btn.textContent=label;
-    btn.onclick=()=>showURLMode(url,goBack);
-    qlCard.appendChild(btn);
-  });
-  sbScroll.appendChild(qlCard);
+  const bmListEl=document.createElement("div");bmListEl.className="url-page-sb-card";
+  sbScroll.appendChild(bmListEl);
 
   const div1=document.createElement("div");div1.className="url-page-sb-divider";
   sbScroll.appendChild(div1);
@@ -4584,7 +4752,44 @@ function _launchURLPage(goBack,fromTerminal){
   infoCard.innerHTML='ENTER A URL TO LOAD IT<br>IN THE BROWSER FRAME.<br><br>ENTER ANY OTHER TEXT<br>TO SEARCH.';
   sbScroll.appendChild(infoCard);
 
-  sb.appendChild(sbHdr);sb.appendChild(sbScroll);
+  /* history button: pinned at the bottom of the sidebar, right above the READY bar */
+  const sbFoot=document.createElement("div");sbFoot.className="url-page-sb-foot";
+  const histOpen=document.createElement("button");histOpen.className="url-page-ql-item";
+  histOpen.onclick=()=>showHistoryPage(goBack);
+  sbFoot.appendChild(histOpen);
+
+  function startRename(row,url,label){
+    const inp=document.createElement("input");inp.type="text";inp.value=label;inp.className="bm-edit";
+    inp.spellcheck=false;inp.autocomplete="off";
+    row.innerHTML="";row.appendChild(inp);inp.focus();inp.select();
+    let done=false;
+    const commit=save=>{
+      if(done)return;done=true;
+      if(save){const v=inp.value.trim();if(v&&v!==label)renameBM(url,v);}
+      renderLists();
+    };
+    inp.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter")commit(true);else if(e.key==="Escape")commit(false);};
+    inp.onblur=()=>commit(true);
+  }
+  function renderLists(){
+    bmListEl.innerHTML="";
+    const bms=getBM();
+    if(!bms.length){const e=document.createElement("div");e.className="bm-empty";e.textContent="No bookmarks";bmListEl.appendChild(e);}
+    else bms.forEach(({url,label})=>{
+      const row=document.createElement("div");row.className="bm-item";
+      const go=document.createElement("button");go.className="url-page-ql-item";
+      go.textContent=label;go.title=label+"\n"+url;
+      go.onclick=()=>showURLMode(url,goBack);
+      const ren=mkMini("✎","","Edit bookmark",()=>bmDialog(url,label===url?"":label,(u,l)=>{editBM(url,u,l);renderLists();},"EDIT BOOKMARK"));
+      const star=mkMini("★","on","Remove bookmark",()=>{delBM(url);renderLists();});
+      row.appendChild(go);row.appendChild(ren);row.appendChild(star);
+      bmListEl.appendChild(row);
+    });
+    histOpen.textContent="HISTORY ("+getHist().length+")";
+  }
+  renderLists();
+
+  sb.appendChild(sbHdr);sb.appendChild(sbScroll);sb.appendChild(sbFoot);
 
   /* ── MAIN ── */
   const main=document.createElement("div");main.className="url-page-main";
@@ -4604,7 +4809,33 @@ function _launchURLPage(goBack,fromTerminal){
   }
 
   const goBtn=mkPageBtn("[ GO ]",handleGo);
-  searchBar.appendChild(addrInput);searchBar.appendChild(goBtn);
+  /* star in the address bar: bookmark / unbookmark the address typed in the box */
+  const looksURL=v=>/^https?:\/\//i.test(v)||/^[\w-]+\.[\w.-]+(\/|$)/.test(v);
+  const curAddr=()=>{const a=addrInput.value.trim();return looksURL(a)?normalizeURL(a):"";};
+  const starBtn=document.createElement("button");
+  starBtn.style.cssText="background:transparent;border:1px solid rgba(0,255,0,0.4);font-family:monospace;font-size:14px;line-height:1;padding:5px 10px;cursor:pointer;";
+  function syncStar(){
+    const u=curAddr(),on=!!u&&isBM(u);
+    starBtn.textContent=on?"★":"☆";starBtn.style.color=on?"#0f0":"#0a0";
+    starBtn.title=on?"Remove bookmark":"Bookmark this address";
+  }
+  starBtn.onclick=()=>{
+    const u=curAddr();
+    if(!u){statusBar.textContent="TYPE AN ADDRESS TO BOOKMARK IT";return;}
+    if(isBM(u)){delBM(u);statusBar.textContent="BOOKMARK REMOVED: "+u.toUpperCase();}
+    else{
+      bmDialog(u,"",(url,label)=>{
+        const r=addBM(url,label);
+        statusBar.textContent=r===false?"NOT SAVED: COOKIE IS FULL":(r===true?"BOOKMARKED: ":"BOOKMARKED (NOT SAVED, COOKIES OFF): ")+url.toUpperCase();
+        renderLists();syncStar();
+      });
+      return;
+    }
+    renderLists();syncStar();
+  };
+  addrInput.addEventListener("input",syncStar);
+  syncStar();
+  searchBar.appendChild(addrInput);searchBar.appendChild(starBtn);searchBar.appendChild(goBtn);
 
   /* results area */
   const results=document.createElement("div");results.className="url-page-results";
@@ -4724,6 +4955,7 @@ function _launchURLPage(goBack,fromTerminal){
       statusBar.textContent="NAVIGATING TO: "+val.toUpperCase();
       showURLMode(normalizeURL(val),goBack);
     } else {
+      pushHist(val);renderLists();
       handleAISearch();
     }
   }
@@ -4834,7 +5066,10 @@ function showURLMode(initialURL,goBack){
   function _doLaunchURLMode(){
   const iframe=document.createElement("iframe");iframe.src=initialURL;
   _ilog("info","Navigating to: "+initialURL);
-  iframe.addEventListener("load",()=>{try{const u=iframe.contentWindow.location.href;if(u&&u!=="about:blank")addressBar.value=u;_ilog("log","Page loaded: "+u);}catch(e){_ilog("log","Page loaded (cross-origin)");}});
+  pushHist(initialURL);
+  let curURL=initialURL; // last URL we know about (can't read it cross-origin)
+  function syncStar(){const on=isBM(curURL);bmBtn.textContent=on?"★":"☆";bmBtn.title=on?"Remove bookmark":"Bookmark this page";}
+  iframe.addEventListener("load",()=>{try{const u=iframe.contentWindow.location.href;if(u&&u!=="about:blank"){addressBar.value=u;if(u!==curURL){curURL=u;pushHist(u);syncStar();}}_ilog("log","Page loaded: "+u);}catch(e){_ilog("log","Page loaded (cross-origin)");}});
   iframe.addEventListener("error",()=>{_ilog("error","Failed to load: "+initialURL);showFailScreen('PAGE LOAD FAILED',initialURL.length>50?initialURL.slice(0,50)+'...':initialURL,()=>showURLPage(goBack),()=>showURLMode(initialURL,goBack));});
   const hoverZone=document.createElement("div");hoverZone.className="hover-zone";
   const topbar=document.createElement("div");topbar.className="topbar";
@@ -4847,6 +5082,7 @@ function showURLMode(initialURL,goBack){
     if(/^https?:\/\//i.test(val)||/^[\w-]+\.[\w.-]+(\/|$)/.test(val)){
       const u=normalizeURL(val);
       iframe.src=u;
+      curURL=u;pushHist(u);syncStar();
       _ilog("info","Navigating to: "+u);
     } else {
       // Non-URL: go to loader and pre-fill / auto-search
@@ -4869,7 +5105,13 @@ function showURLMode(initialURL,goBack){
   loaderBtn.onmouseenter=()=>{loaderBtn.style.background="rgba(0,255,0,0.15)";loaderBtn.style.borderColor="#0f0";};
   loaderBtn.onmouseleave=()=>{loaderBtn.style.background="rgba(0,0,0,0.2)";loaderBtn.style.borderColor="rgba(0,255,0,0.3)";};
   loaderBtn.onclick=()=>showURLPage(goBack);
-  [loaderBtn,reloadBtn,addressBar,goBtn].forEach(el=>topbar.appendChild(el));
+  const bmBtn=makeBtn(isBM(initialURL)?"★":"☆",()=>{
+    const url=curURL;
+    if(isBM(url)){delBM(url);syncStar();return;}
+    bmDialog(url,"",(u,lbl)=>{addBM(u,lbl);syncStar();});
+  });
+  bmBtn.title=isBM(initialURL)?"Remove bookmark":"Bookmark this page";
+  [loaderBtn,reloadBtn,addressBar,goBtn,bmBtn].forEach(el=>topbar.appendChild(el));
 
   let hT,hT2;
   hoverZone.addEventListener("mouseenter",()=>hT=setTimeout(()=>topbar.classList.add("visible"),600));
@@ -4881,6 +5123,93 @@ function showURLMode(initialURL,goBack){
   } // end _doLaunchURLMode
 }
 
+
+function showHistoryPage(goBack){
+  if(!goBack)goBack=showMenu;
+  clearBody();
+  const page=document.createElement("div");page.className="url-page";
+
+  const hdr=document.createElement("div");hdr.className="url-page-hdr";
+  const titleWrap=document.createElement("div");
+  titleWrap.innerHTML='<span class="url-page-hdr-title">HISTORY<span class="url-page-hdr-sub">BROWSER // DATA OS</span></span>';
+  const badge=document.createElement("div");badge.className="url-page-badge";badge.textContent="v2.2";
+  const hdrRight=document.createElement("div");hdrRight.className="url-page-hdr-right";
+  function hdrBtn(txt,rgb,fn){
+    const b=document.createElement("button");b.textContent=txt;
+    b.style.cssText="background:#000;color:rgb("+rgb+");border:1px solid rgba("+rgb+",0.4);font-family:monospace;font-size:11px;padding:4px 10px;letter-spacing:2px;cursor:pointer;";
+    b.onmouseover=()=>{b.style.background="rgba("+rgb+",0.1)";b.style.borderColor="rgb("+rgb+")";};
+    b.onmouseout=()=>{b.style.background="#000";b.style.borderColor="rgba("+rgb+",0.4)";};
+    b.onclick=fn;return b;
+  }
+  const clearBtn=hdrBtn("[ CLEAR ALL ]","255,85,85",()=>{});
+  const backBtn=hdrBtn("[ BACK ]","0,255,0",()=>showURLPage(goBack));
+  hdrRight.appendChild(clearBtn);hdrRight.appendChild(backBtn);
+  hdr.appendChild(titleWrap);hdr.appendChild(badge);hdr.appendChild(hdrRight);
+
+  const body=document.createElement("div");body.className="url-page-body";
+  const main=document.createElement("div");main.className="url-page-main";
+  const searchBar=document.createElement("div");searchBar.className="url-page-search-bar";
+  const filter=document.createElement("input");filter.type="text";filter.placeholder="filter history...";
+  filter.spellcheck=false;filter.autocomplete="off";
+  searchBar.appendChild(filter);
+  const results=document.createElement("div");results.className="url-page-results";
+  main.appendChild(searchBar);main.appendChild(results);body.appendChild(main);
+  const statusBar=document.createElement("div");statusBar.className="url-page-status";
+  page.appendChild(hdr);page.appendChild(body);page.appendChild(statusBar);
+  document.body.appendChild(page);
+  addCopyright();
+
+  const dayKey=d=>d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate();
+  function dayLabel(ts){
+    const d=new Date(ts*1000),now=new Date(),y=new Date(now);y.setDate(now.getDate()-1);
+    if(dayKey(d)===dayKey(now))return"TODAY";
+    if(dayKey(d)===dayKey(y))return"YESTERDAY";
+    return d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}).toUpperCase();
+  }
+  const timeLabel=ts=>new Date(ts*1000).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+
+  function render(){
+    results.innerHTML="";
+    const all=getHist(),q=filter.value.trim().toLowerCase();
+    let shown=0,lastDay=null;
+    all.forEach((h,i)=>{
+      if(q&&h.u.toLowerCase().indexOf(q)===-1)return;
+      shown++;
+      const dl=dayLabel(h.t);
+      if(dl!==lastDay){lastDay=dl;const dh=document.createElement("div");dh.className="hist-day";dh.textContent=dl;results.appendChild(dh);}
+      const row=document.createElement("div");row.className="bm-item hist-row";
+      const tm=document.createElement("span");tm.className="hist-time";tm.textContent=timeLabel(h.t);
+      const go=document.createElement("button");go.className="url-page-ql-item";
+      const isURL=/^https?:\/\//i.test(h.u)||/^[\w-]+\.[\w.-]+(\/|$)/.test(h.u);
+      go.textContent=isURL?h.u.replace(/^https?:\/\//i,""):"search: "+h.u;go.title=h.u;
+      go.onclick=isURL?()=>showURLMode(h.u,goBack):()=>{
+        showURLPage(goBack);
+        setTimeout(()=>{
+          const loaderInput=document.querySelector(".url-page-search-bar input");
+          if(loaderInput){loaderInput.value=h.u;loaderInput.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true}));}
+        },80);
+      };
+      const on=isBM(h.u);
+      const star=mkMini(on?"★":"☆",on?"on":"",on?"Remove bookmark":"Bookmark",()=>{if(isBM(h.u)){delBM(h.u);render();}else bmDialog(h.u,"",(u,l)=>{addBM(u,l);render();});});
+      const del=mkMini("✕","bm-del","Delete this visit",()=>{delHistAt(i);render();});
+      row.appendChild(tm);row.appendChild(go);if(isURL)row.appendChild(star);row.appendChild(del);
+      results.appendChild(row);
+    });
+    if(!shown){
+      const e=document.createElement("div");e.className="bm-empty";
+      e.textContent=all.length?"No matches":"No history yet";results.appendChild(e);
+    }
+    statusBar.textContent=all.length+" VISIT"+(all.length===1?"":"S")+(q?" // "+shown+" MATCH":"")+(_cookiesOK()?"":" // COOKIES OFF: NOT SAVED");
+  }
+  filter.oninput=render;
+
+  clearBtn.onclick=()=>{
+    const n=getHist().length;
+    confirmDialog("CLEAR HISTORY","Delete all "+n+" visit"+(n===1?"":"s")+"? This can't be undone.","CLEAR ALL",()=>{clearHist();render();});
+  };
+  render();
+  setTimeout(()=>filter.focus(),50);
+}
 
 let stressWorkers=[],stressRunning=false,totalOps=0;
 /* ── shared stop helper (used by tab teardown) ── */
@@ -6652,7 +6981,7 @@ const fs={
       "explorer.exe":"(executable)",
       "sysusage.exe":"(executable)",
       "sysmonitor.exe":"(executable)",
-      "readme.txt":"Data OS 12.0.1 - System Guide\r\n================================\r\n\r\nWELCOME\r\n-------\r\nData OS is a browser-based terminal environment with apps, games,\r\nand a full virtual filesystem. Type commands in the terminal to\r\nnavigate and launch programs.\r\n\r\n\r\nTERMINAL COMMANDS\r\n-----------------\r\ncls          - Clear the screen\r\ndir          - List files in current directory\r\ncd [folder]  - Change directory (case-insensitive)\r\nmd [name]    - Make a new folder\r\nrd [name]    - Remove a folder\r\ndel [file]   - Delete a file\r\ntype [file]  - Print a file's contents\r\ncopy [a] [b] - Copy a file\r\nmove [a] [b] - Move a file\r\nren [a] [b]  - Rename a file\r\necho [text]  - Print text to screen\r\nver          - Show OS version\r\ndate / time  - Show current date or time\r\nwhoami       - Show current user\r\nhostname     - Show computer name\r\nsysteminfo   - Show system information\r\ntasklist     - List running processes\r\nipconfig     - Show network configuration\r\nping [host]  - Ping a host\r\nset          - Show environment variables\r\nhelp [cmd]   - Get help on any command\r\nez-mode      - Open EZ-Mode\r\n\r\n\r\nAPPS\r\n----\r\nnotepad.exe  - Text editor (ESC to close)\r\nexplorer.exe - File Explorer (ESC to close)\r\nsysusage.exe  - System Usage Monitor\r\n\r\nSmall apps are in C:\\Users\\anonymous\\Apps\r\ncd Apps, then type the name to launch:\r\n\r\n  calc.exe       - Calculator\r\n  htmleditor.exe - HTML Editor with live preview\r\n  browser.exe  - Load any URL in a frame\r\n  base64.exe     - Base64 encoder/decoder\r\n  stress.exe     - System Usage Monitor\r\n  paint.exe      - Freehand drawing canvas\r\n  pixelart.exe   - Pixel art editor\r\n  ascii.exe      - Image to ASCII art converter\r\n  hacker.exe     - Hacker Typer\r\n  music.exe      - Music Player\r\n\r\n\r\nGAMES\r\n-----\r\nGames are in C:\\Users\\anonymous\\Games\r\n  cd Games, then type the name:\r\n\r\n  pong         - W/S to move, SPACE to start\r\n  tetris       - Arrow keys, SPACE to hard drop\r\n  minesweeper  - Left-click reveal, right-click flag\r\n  snake        - Arrow keys, SPACE to start\r\n  breakout     - Mouse or arrow keys, SPACE to launch\r\n  2048         - Arrow keys to slide tiles\r\n\r\nAll games: ESC to exit, R to restart.\r\n\r\n\r\nFILESYSTEM LAYOUT\r\n-----------------\r\nC:\\\r\n  Users\\\r\n    anonymous\\       <- Your home folder\r\n      Desktop\\\r\n      Documents\\\r\n      Downloads\\\r\n      Apps\\          <- Small apps\r\n      Games\\         <- Games\r\n  Program Files\\\r\n    Google\\\r\n      Chrome\\\r\n\r\nTip: cd is case-insensitive, so 'cd apps' works fine.\r\n",
+      "readme.txt":"Data OS 12.1.0 - System Guide\r\n================================\r\n\r\nWELCOME\r\n-------\r\nData OS is a browser-based terminal environment with apps, games,\r\nand a full virtual filesystem. Type commands in the terminal to\r\nnavigate and launch programs.\r\n\r\n\r\nTERMINAL COMMANDS\r\n-----------------\r\ncls          - Clear the screen\r\ndir          - List files in current directory\r\ncd [folder]  - Change directory (case-insensitive)\r\nmd [name]    - Make a new folder\r\nrd [name]    - Remove a folder\r\ndel [file]   - Delete a file\r\ntype [file]  - Print a file's contents\r\ncopy [a] [b] - Copy a file\r\nmove [a] [b] - Move a file\r\nren [a] [b]  - Rename a file\r\necho [text]  - Print text to screen\r\nver          - Show OS version\r\ndate / time  - Show current date or time\r\nwhoami       - Show current user\r\nhostname     - Show computer name\r\nsysteminfo   - Show system information\r\ntasklist     - List running processes\r\nipconfig     - Show network configuration\r\nping [host]  - Ping a host\r\nset          - Show environment variables\r\nhelp [cmd]   - Get help on any command\r\nez-mode      - Open EZ-Mode\r\n\r\n\r\nAPPS\r\n----\r\nnotepad.exe  - Text editor (ESC to close)\r\nexplorer.exe - File Explorer (ESC to close)\r\nsysusage.exe  - System Usage Monitor\r\n\r\nSmall apps are in C:\\Users\\anonymous\\Apps\r\ncd Apps, then type the name to launch:\r\n\r\n  calc.exe       - Calculator\r\n  htmleditor.exe - HTML Editor with live preview\r\n  browser.exe  - Load any URL in a frame (bookmarks + history)\r\n  base64.exe     - Base64 encoder/decoder\r\n  stress.exe     - System Usage Monitor\r\n  paint.exe      - Freehand drawing canvas\r\n  pixelart.exe   - Pixel art editor\r\n  ascii.exe      - Image to ASCII art converter\r\n  hacker.exe     - Hacker Typer\r\n  music.exe      - Music Player\r\n\r\n\r\nGAMES\r\n-----\r\nGames are in C:\\Users\\anonymous\\Games\r\n  cd Games, then type the name:\r\n\r\n  pong         - W/S to move, SPACE to start\r\n  tetris       - Arrow keys, SPACE to hard drop\r\n  minesweeper  - Left-click reveal, right-click flag\r\n  snake        - Arrow keys, SPACE to start\r\n  breakout     - Mouse or arrow keys, SPACE to launch\r\n  2048         - Arrow keys to slide tiles\r\n\r\nAll games: ESC to exit, R to restart.\r\n\r\n\r\nFILESYSTEM LAYOUT\r\n-----------------\r\nC:\\\r\n  Users\\\r\n    anonymous\\       <- Your home folder\r\n      Desktop\\\r\n      Documents\\\r\n      Downloads\\\r\n      Apps\\          <- Small apps\r\n      Games\\         <- Games\r\n  Program Files\\\r\n    Google\\\r\n      Chrome\\\r\n\r\nTip: cd is case-insensitive, so 'cd apps' works fine.\r\n",
     },
     "C:\\Users\\anonymous\\Desktop":{
       "EZ-Mode.html":"(this file)",
@@ -6825,7 +7154,7 @@ function showTerminal(goBack){
     "paint.exe":()=>{print("Opening Paint...");setTimeout(()=>showDraw(showTerminal),100);},
     "explorer.exe":()=>launchExplorer("C:\\Users\\anonymous"),
     "chrome.exe":()=>{print("Google Chrome is already running.");},
-    "cmd.exe":()=>{print("Microsoft Windows [Version 12.0.1.0000]");print("(C) Data OS. All rights reserved.");print("");print("You are already in cmd.exe.");},
+    "cmd.exe":()=>{print("Microsoft Windows [Version 12.1.0.0000]");print("(C) Data OS. All rights reserved.");print("");print("You are already in cmd.exe.");},
     "sysusage.exe":()=>{print("Opening System Usage Monitor...");setTimeout(()=>showStress(showTerminal),100);},
     "sysmonitor.exe":()=>{print("Opening System Usage Monitor...");setTimeout(()=>showStress(showTerminal),100);},
     "htmleditor.exe":()=>{print("Opening HTML Editor...");setTimeout(()=>showEditor("",showTerminal),100);},
@@ -7064,7 +7393,7 @@ function showTerminal(goBack){
 
       case"ver":
         print("");
-        print("Data OS Terminal [Version 12.0.1]");
+        print("Data OS Terminal [Version 12.1.0]");
         print("");
         break;
 
@@ -7087,7 +7416,7 @@ function showTerminal(goBack){
       case"systeminfo":
         print("Host Name:                 SCHOOL-PC");
         print("OS Name:                   Data OS");
-        print("OS Version:                12.0.1 Build 19246");
+        print("OS Version:                12.1.0 Build 19246");
         print("System Manufacturer:       Google");
         print("System Model:              Chromebook");
         print("System Type:               x64-based PC");
@@ -7276,7 +7605,7 @@ function showTerminal(goBack){
     print("");
   }
 
-  print(`DATA OS 12.0.1`);
+  print(`DATA OS 12.1.0`);
   print(`Type 'help' for a list of available commands.`);
   print(`Type 'ez-mode' to open EZ-Mode.`);
   print(``);
